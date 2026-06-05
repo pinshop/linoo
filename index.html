@@ -1,0 +1,2447 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Torneo Octavos de Final - Interactivo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="connection.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set, update, get } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBFn2B-_MiKwXm5DW26H2pIz_B2C_q--DU",
+            authDomain: "canecup-6e6d7.firebaseapp.com",
+            projectId: "canecup-6e6d7",
+            storageBucket: "canecup-6e6d7.firebasestorage.app",
+            messagingSenderId: "165162910126",
+            appId: "1:165162910126:web:0d3fe1cab0426bab22083f",
+            databaseURL: "https://canecup-6e6d7-default-rtdb.firebaseio.com"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        window.firebaseDb = db;
+        window.firebaseRef = ref;
+        window.firebaseOnValue = onValue;
+        window.firebaseSet = set;
+        window.firebaseUpdate = update;
+        window.firebaseGet = get;
+        window.firebaseLoaded = true;
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0d0d0d;
+            font-family: Arial, sans-serif;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* ---------------- CONTROLES SUPERIORES ---------------- */
+        .inputFields {
+            width: 100%;
+            padding: 12px 10px;
+            background: rgba(20, 20, 20, 0.95);
+            text-align: center;
+            z-index: 20;
+            border-bottom: 2px solid #333;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .control-group p { margin: 0 0 4px 0; font-size: 12px; color: #ccc; }
+
+        .inputFields input[type="text"], .inputFields select {
+            padding: 8px 12px;
+            font-size: 14px;
+            border-radius: 20px;
+            border: 2px solid #333;
+            background: #000;
+            color: white;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .inputFields input[type="text"]:focus {
+            border-color: #00f2ea;
+        }
+
+        .inputFields button, .inputFields input[type="button"] {
+            padding: 8px 18px;
+            font-size: 14px;
+            border-radius: 20px;
+            border: none;
+            background: linear-gradient(90deg, #ff0050, #00f2ea);
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 0 10px rgba(255, 0, 80, 0.3);
+        }
+        .inputFields button:hover, .inputFields input[type="button"]:hover { 
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 242, 234, 0.5);
+        }
+
+        /* ---------------- DRAGGABLE PANELS ---------------- */
+        .draggable-panel {
+            position: fixed;
+            background: rgba(20, 20, 20, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid #444;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            cursor: move;
+            min-width: 180px;
+        }
+
+        .draggable-panel h4 {
+            margin: 0 0 12px 0;
+            text-align: center;
+            color: #00ffcc;
+            font-size: 14px;
+            pointer-events: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stats-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .stats-flag {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid white;
+        }
+
+        .stats-count {
+            margin-left: auto;
+            color: #ff0050;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* ---------------- HISTORICAL PANEL ---------------- */
+        .historical-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 5px 10px;
+            margin-bottom: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            position: relative;
+            gap: 15px;
+        }
+
+        .historical-flag {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.4);
+            object-fit: cover;
+        }
+
+        .historical-count {
+            background: #ff0050;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 900;
+            border: 1px solid white;
+            cursor: pointer;
+        }
+
+        .crown-animate {
+            position: absolute;
+            top: -15px;
+            left: -10px;
+            width: 25px;
+            height: 25px;
+            filter: drop-shadow(0 0 5px gold);
+            animation: crown-rotate 3s linear infinite;
+            z-index: 10;
+        }
+
+        @keyframes crown-rotate {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(360deg); }
+        }
+
+        /* ---------------- PRE-JUEGO (SELECTOR 30 PAÍSES) ---------------- */
+        #pickerScreen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            padding: 40px 0;
+            box-sizing: border-box;
+        }
+        .picker-header {
+            text-align: center; margin-bottom: 20px;
+        }
+        .picker-header h1 { margin: 0; font-size: 32px; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5); }
+        .picker-header h3 { margin: 10px 0; color: #aaa; }
+
+        .picker-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            max-width: 900px;
+            margin-bottom: 30px;
+        }
+
+        .picker-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            position: relative;
+        }
+
+        .picker-badge {
+            position: absolute;
+            top: -5px; right: 5px;
+            background: #ff0050; border: 2px solid white;
+            color: white; font-weight: bold; border-radius: 50%;
+            width: 24px; height: 24px; display: flex;
+            justify-content: center; align-items: center;
+            font-size: 13px; box-shadow: 0 0 5px rgba(0,0,0,0.8);
+            pointer-events: none;
+        }
+
+        .picker-item {
+            width: 70px; height: 70px;
+            border-radius: 50%;
+            border: 4px solid #444;
+            cursor: pointer;
+            background-size: cover;
+            background-position: center;
+            transition: all 0.2s;
+        }
+        .picker-item:hover { transform: scale(1.1); }
+        .picker-item.selected {
+            border-color: #00ffcc;
+            box-shadow: 0 0 15px #00ffcc, inset 0 0 10px rgba(0,0,0,0.5);
+            transform: scale(1.1);
+        }
+
+        .picker-name {
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+            text-transform: uppercase;
+            text-align: center;
+            color: #ccc;
+        }
+
+        #btnStartTournament {
+            font-size: 20px; padding: 15px 40px; border-radius: 30px;
+            background: #00ffcc; color: black; border: none; font-weight: 900;
+            cursor: pointer; box-shadow: 0 0 20px #00ffcc;
+            opacity: 0.5; pointer-events: none; transition: 0.3s;
+        }
+        #btnStartTournament.enabled { opacity: 1; pointer-events: auto; }
+
+        /* ---------------- CONTENEDOR PRINCIPAL Y CANVAS ---------------- */
+        .main-container {
+            width: 700px; /* Tamaño apto para OBS por defecto */
+            max-width: 95vw;
+            margin-top: 30px;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 12px;
+            resize: both;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            background: #000;
+            display: none; /* Se activa tras elegir países */
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Indicador de resize */
+        .main-container::after {
+            content: ''; position: absolute; bottom: 4px; right: 4px; width: 14px; height: 14px;
+            background: linear-gradient(-45deg, transparent 50%, rgba(255, 255, 255, 0.8) 50%);
+            border-radius: 0 0 4px 0; pointer-events: none;
+        }
+
+        /* ---------------- TOP BAR (VS MATCH) ---------------- */
+        #topBar {
+            width: 100%;
+            height: 140px;
+            background: linear-gradient(to right, rgba(0, 0, 40, 0.95), rgba(40, 0, 20, 0.95));
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 3px solid #ff0050;
+            box-sizing: border-box;
+            padding: 0 20px;
+        }
+
+        .topBar-flag {
+            width: 120px; height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 6px solid white;
+            box-shadow: 0 0 25px rgba(255,255,255,0.5);
+            z-index: 5;
+        }
+
+        .topBar-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 60%;
+        }
+
+        #topTimer {
+            font-size: 50px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-shadow: 0 0 15px #00ffcc;
+            margin-bottom: 15px;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .promo-site {
+            color: white;
+            font-size: 16px;
+            font-weight: 900;
+            margin-top: -12px;
+            margin-bottom: 12px;
+            z-index: 10;
+            opacity: 0;
+            user-select: none;
+            pointer-events: none;
+            animation: promoFadeGlow 10s infinite;
+            font-family: Arial, sans-serif;
+        }
+
+        @keyframes promoFadeGlow {
+            0%, 50%, 100% { 
+                opacity: 0; 
+                text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; 
+                transform: translateY(5px);
+            }
+            5%, 45% { 
+                opacity: 1; 
+                transform: translateY(0);
+                text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            }
+            20%, 30% {
+                text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 10px #9333ea, 0 0 20px #9333ea;
+            }
+        }
+
+        .bars-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .split-bar {
+            flex-grow: 1;
+            height: 24px;
+            background: #111;
+            border-radius: 15px;
+            display: flex;
+            overflow: hidden;
+            border: 3px solid white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.7);
+        }
+
+        .blue-fill { width: 50%; background: linear-gradient(90deg, #0055ff, #00f2ea); transition: width 0.3s ease-out; }
+        .green-fill { width: 50%; background: linear-gradient(90deg, #00ff00, #33cc33); transition: width 0.3s ease-out; }
+
+        .score-text { font-size: 28px; font-weight: 900; width: 60px; text-align: center; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+
+        .canvas-wrapper {
+            width: 100%;
+            aspect-ratio: 800 / 600; /* Mantiene la proporción estricta */
+        }
+        
+        #gameCanvas {
+            width: 100%; height: 100%; display: block;
+            background: radial-gradient(circle at center, #083d3d 0%, #021a1a 100%);
+            cursor: pointer;
+        }
+
+        /* ---------------- GIFT CAROUSEL ---------------- */
+        .gift-carousel {
+            width: 140px;
+            height: 48px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 24px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .carousel-track {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0 10px;
+            width: max-content;
+        }
+
+        .carousel-track img {
+            height: 32px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+        }
+
+        .marquee-L { animation: scrollL 6s linear infinite; }
+        .marquee-R { animation: scrollR 6s linear infinite; }
+
+        @keyframes scrollL {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes scrollR {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+        }
+
+        .carousel-track img {
+            height: 32px;
+            width: 35px; /* Fixed width for seamless looping */
+            object-fit: contain;
+            filter: drop-shadow(0 0 5px rgba(255,255,255,0.3));
+        }
+
+        /* ---------------- JOIN NOTIFICATION ---------------- */
+        .join-bubble {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) scale(0);
+            background: white;
+            color: #333;
+            padding: 8px 24px;
+            border-radius: 30px;
+            font-weight: 900;
+            font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 500;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 2px solid #00ffcc;
+        }
+
+        .join-bubble.show {
+            transform: translateX(-50%) scale(1);
+        }
+
+        .join-bubble b { color: #ff0050; }
+
+        /* ---------------- FLAG BLINK ANIMATION ---------------- */
+        @keyframes blinkRed {
+            0% { box-shadow: 0 0 25px rgba(255,255,255,0.5); border-color: white; }
+            50% { box-shadow: 0 0 50px #ff0000, 0 0 80px #ff0000; border-color: #ff0000; transform: scale(1.05); }
+            100% { box-shadow: 0 0 25px rgba(255,255,255,0.5); border-color: white; transform: scale(1); }
+        }
+
+        .blink-flag {
+            animation: blinkRed 0.5s ease-in-out infinite;
+        }
+
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 5px #ff0000; transform: scale(1); }
+            50% { box-shadow: 0 0 20px #ff0000; transform: scale(1.05); }
+            100% { box-shadow: 0 0 5px #ff0000; transform: scale(1); }
+        }
+
+        /* ---------------- TAPTAP PROMO ---------------- */
+        .taptap-promo {
+            position: absolute;
+            bottom: 80px; /* Arriba de la burbuja de unión */
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            opacity: 0;
+            color: #ff0050;
+            font-weight: 900;
+            font-size: 22px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 2px 2px 0 #000;
+            white-space: nowrap;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+            z-index: 600;
+        }
+
+        .taptap-promo.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .heart-particle {
+            position: absolute;
+            color: #ff0050;
+            font-size: 16px;
+            pointer-events: none;
+            animation: floatHeart 2s ease-out forwards;
+        }
+
+        @keyframes floatHeart {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(1.5); opacity: 0; }
+        }
+
+        /* ---------------- SISTEMA DE TOKENS Y BLOQUEO ---------------- */
+        #tokenLockScreen {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 99999; /* Por encima de todo */
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        #tokenLockScreen h1 {
+            color: #ff0050;
+            font-size: 60px;
+            font-weight: 900;
+            text-shadow: 0 0 20px #ff0050, 0 0 40px #ff0050;
+            margin: 0 0 20px 0;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+        #tokenLockScreen p {
+            color: white;
+            font-size: 24px;
+            max-width: 600px;
+        }
+
+        .token-bar-container {
+            width: 150px;
+            height: 18px;
+            background: #222;
+            border: 2px solid #555;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin-left: 10px;
+        }
+        .token-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffcc, #00aaff);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .token-bar-text {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 3px black;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE BLOQUEO TOKENS -->
+    <div id="tokenLockScreen">
+        <h1>RECARGAR TOKENS</h1>
+        <p>Has alcanzado el límite de tokens permitidos. Por favor, recarga tu licencia para continuar usando el overlay.</p>
+    </div>
+
+    <!-- OVERLAY SELECCIÓN 30 PAÍSES -->
+    <div id="pickerScreen">
+        <div class="picker-header">
+            <h1>ELIGE 16 CLUBES</h1>
+            <h3 id="pickerCountText">Seleccionados: <span id="pickerCount">0</span> / 16</h3>
+            <p style="color: #888; font-size: 14px;">(Serán organizados 8 lado Azul, 8 lado Rosa)</p>
+        </div>
+        <div class="picker-grid" id="countryGrid"></div>
+        <button id="btnStartTournament"> COMENZAR TORNEO </button>
+    </div>
+
+    <!-- OPCIONES LATERALES (ARRASTRABLES) -->
+    <div id="bgPanel" class="draggable-panel" style="right: 10px; top: 150px;">
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 10px;">
+            <div id="graceTimerDisplay" style="display: none; padding: 6px; background: #222; border: 2px solid #ff0000; color: #ff0000; border-radius: 4px; text-align: center; font-weight: bold; font-size: 12px; animation: pulseRed 1s infinite;">
+                GRACIA: 05:00
+            </div>
+            <button id="btnRestartFinal" style="padding: 6px; background: #ff3333; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">Reiniciar Final</button>
+            <button id="btnAdd20s" style="padding: 6px; background: #33cc33; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 11px;">+20 Segundos</button>
+        </div>
+        <h4>Fondo Canvas</h4>
+        <input type="file" id="bgImageInput" accept="image/*" style="width: 150px; font-size: 11px; cursor: pointer;">
+        <p style="font-size: 10px; color: #aaa; margin-top: 5px; text-align: center;">Selecciona una imagen<br>desde tu escritorio.</p>
+    </div>
+
+    <div id="historicalPanel" class="draggable-panel" style="left: 10px; top: 150px; min-width: 160px;">
+        <h4>🏆 FINALES GANADAS</h4>
+        <div id="historicalContent" style="display: flex; flex-direction: column; width: 100%; box-sizing: border-box;">
+            <div style="text-align: center; color: #555; font-size: 12px;">Sin copas</div>
+        </div>
+    </div>
+
+    <div id="statsPanel" class="draggable-panel" style="right: 10px; top: 320px;">
+        <h4>⚽ LAS CABRAS</h4>
+        <div id="statsContent">
+            <div style="text-align: center; color: #555; font-size: 12px;">Sin datos aún</div>
+        </div>
+    </div>
+
+    <!-- CONTROLES COMANDOS OBS -->
+    <div class="inputFields">
+        <div class="control-group">
+            <p>Conectar TikTok</p>
+            <div>
+                <input type="text" id="uniqueIdInput" placeholder="@usuario">
+                <input type="button" id="connectButton" value="Conectar">
+                <input type="button" id="connectTikFinity" value="TikFinity App" style="background: linear-gradient(90deg, #6200ea, #03dac6); margin-left: 5px;">
+            </div>
+            <span id="stateText" style="font-size:11px; margin-top:2px;">Desconectado</span>
+            <p style="font-size: 8px; color: #ff5555; margin-top: 5px; max-width: 250px;">si compartes este link a otro usuario el juego será eliminado del sistema con ambos usuarios</p>
+        </div>
+
+        <div class="control-group">
+            <p>Reloj Partida</p>
+            <div>
+                <select id="timerOptions">
+                    <option value="60">1 min</option>
+                    <option value="120">2 min</option>
+                    <option value="180">3 min</option>
+                    <option value="300">5 min</option>
+                    <option value="600">10 min</option>
+                    <option value="900">15 min</option>
+                </select>
+                <button id="startTimerBtn">Iniciar</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <p>Tamaño Banderas Canvas</p>
+            <select id="flagSizeOptions">
+                <option value="0.8">Pequeño</option>
+                <option value="1.0" selected>Mediano</option>
+                <option value="1.3">Grande</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <p>Gestión</p>
+            <div style="display: flex; gap: 5px; align-items: center;">
+                <input type="button" id="resetStatsBtn" value="Borrar Récords" style="background: #ff3333;">
+                <input type="button" id="newRoundBtn" value="Nueva Ronda" style="background: #33cc33;">
+                <div class="token-bar-container" title="Progreso de Licencia">
+                    <div id="tokenBarFill" class="token-bar-fill"></div>
+                    <div id="tokenBarText" class="token-bar-text">0 / 35000 Tokens</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR REDIMENSIONABLE (OBS READY) -->
+    <div class="main-container" id="mainGameContainer">
+        <!-- BARRA SUPERIOR MATCH ACTIVO -->
+        <div id="topBar">
+            <img id="flagLeft" src="" class="topBar-flag" style="border-color: #00aaff;">
+            <div class="topBar-center">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div id="carouselL" class="gift-carousel"></div>
+                    <div id="topTimer">00:00</div>
+                    <div id="carouselR" class="gift-carousel"></div>
+                </div>
+                <div class="promo-site">www.pinshop.site</div>
+                <div class="bars-container">
+                    <div id="scoreL" class="score-text" style="color: #00aaff;">0</div>
+                    <div class="split-bar">
+                        <div id="blueBar" class="blue-fill"></div>
+                        <div id="greenBar" class="green-fill"></div>
+                    </div>
+                    <div id="scoreR" class="score-text" style="color: #00ff00;">0</div>
+                </div>
+            </div>
+            <img id="flagRight" src="" class="topBar-flag" style="border-color: #00ff00;">
+        </div>
+
+        <!-- CANVAS TORNEO -->
+        <div class="canvas-wrapper" style="position: relative;">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <canvas id="fireworksCanvas" width="800" height="600" style="position: absolute; top: 0; left: 0; pointer-events: none;"></canvas>
+            
+            <!-- PROMOCIÓN TAP TAP -->
+            <div id="tapTapPromo" class="taptap-promo">TAP TAP ❤️❤️❤️</div>
+
+            <!-- BURBUJA DE NOTIFICACIÓN DE UNIÓN -->
+            <div id="joinNotification" class="join-bubble">
+                <span id="joinNotifText">Usuario se unió a club</span>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        /* ==================================================== 
+           HACK PARA MANTENER LA PESTAÑA ACTIVA (WORKER TIMERS)
+           ==================================================== */
+        const workerBlob = new Blob([`
+            let timers = {};
+            self.onmessage = function(e) {
+                if (e.data.cmd === 'setInterval') {
+                    timers[e.data.id] = setInterval(() => postMessage({id: e.data.id, type: 'interval'}), e.data.delay);
+                } else if (e.data.cmd === 'clearInterval') {
+                    clearInterval(timers[e.data.id]);
+                    delete timers[e.data.id];
+                } else if (e.data.cmd === 'setTimeout') {
+                    timers[e.data.id] = setTimeout(() => {
+                        postMessage({id: e.data.id, type: 'timeout'});
+                        delete timers[e.data.id];
+                    }, e.data.delay);
+                } else if (e.data.cmd === 'clearTimeout') {
+                    clearTimeout(timers[e.data.id]);
+                    delete timers[e.data.id];
+                }
+            };
+        `], { type: 'application/javascript' });
+
+        const bgWorker = new Worker(URL.createObjectURL(workerBlob));
+        const workerCallbacks = {};
+        let workerTimerId = 100000;
+
+        bgWorker.onmessage = function(e) {
+            const data = e.data;
+            if (workerCallbacks[data.id]) {
+                workerCallbacks[data.id]();
+                if (data.type === 'timeout') {
+                    delete workerCallbacks[data.id];
+                }
+            }
+        };
+
+        const originalSetTimeout = window.setTimeout;
+        const originalClearTimeout = window.clearTimeout;
+        const originalSetInterval = window.setInterval;
+        const originalClearInterval = window.clearInterval;
+
+        window.setTimeout = function(callback, delay, ...args) {
+            const id = ++workerTimerId;
+            workerCallbacks[id] = () => callback(...args);
+            bgWorker.postMessage({ cmd: 'setTimeout', id: id, delay: delay || 0 });
+            return id;
+        };
+
+        window.clearTimeout = function(id) {
+            bgWorker.postMessage({ cmd: 'clearTimeout', id: id });
+            delete workerCallbacks[id];
+            originalClearTimeout(id); 
+        };
+
+        window.setInterval = function(callback, delay, ...args) {
+            const id = ++workerTimerId;
+            workerCallbacks[id] = () => callback(...args);
+            bgWorker.postMessage({ cmd: 'setInterval', id: id, delay: delay || 0 });
+            return id;
+        };
+
+        window.clearInterval = function(id) {
+            bgWorker.postMessage({ cmd: 'clearInterval', id: id });
+            delete workerCallbacks[id];
+            originalClearInterval(id);
+        };
+
+        const originalRAF = window.requestAnimationFrame;
+        window.requestAnimationFrame = function(callback) {
+            if (document.hidden) {
+                return window.setTimeout(callback, 1000 / 60);
+            } else {
+                return originalRAF(callback);
+            }
+        };
+
+        /* ==================================================== 
+           LOGICA DE 40 PAISES Y SELECCION
+           ==================================================== */
+        const ALL_COUNTRIES_MAP = {
+            'rayados': 'Rayados', 'toluca': 'Toluca', 'america': 'América', 'leon': 'León', 'pachuca': 'Pachuca',
+            'chivas': 'Chivas', 'tigres': 'Tigres', 'cruz_azul': 'Cruz Azul', 'queretaro': 'Querétaro', 'puebla': 'Puebla',
+            'santos': 'Santos', 'san_luis': 'San Luis', 'atlas': 'Atlas', 'juarez': 'Juárez', 'necaxa': 'Necaxa',
+            'tijuana': 'Tijuana', 'mazatlan': 'Mazatlán', 'pumas': 'Pumas',
+            'atlante': 'Atlante', 'monarcas': 'Monarcas', 'tiburonesveracruz': 'Veracruz'
+        };
+        
+        // Diccionario map para convertir chat "america" -> "america"
+        const countryMap = {
+            "rayados": "rayados", "monterrey": "rayados", "toluca": "toluca", "diablos": "toluca",
+            "america": "america", "américa": "america", "aguilas": "america", "águilas": "america",
+            "leon": "leon", "león": "leon", "pachuca": "pachuca", "tuzos": "pachuca",
+            "chivas": "chivas", "guadalajara": "chivas", "tigres": "tigres",
+            "cruz azul": "cruz_azul", "cruzazul": "cruz_azul", "maquina": "cruz_azul", "máquina": "cruz_azul",
+            "queretaro": "queretaro", "querétaro": "queretaro", "gallos": "queretaro",
+            "puebla": "puebla", "franja": "puebla", "santos": "santos", "laguna": "santos",
+            "san luis": "san_luis", "sanluis": "san_luis", "atletico": "san_luis", "atlético": "san_luis",
+            "atlas": "atlas", "zorros": "atlas", "juarez": "juarez", "juárez": "juarez", "bravos": "juarez",
+            "necaxa": "necaxa", "rayos": "necaxa", "tijuana": "tijuana", "xolos": "tijuana",
+            "mazatlan": "mazatlan", "mazatlán": "mazatlan", "pumas": "pumas", "unam": "pumas",
+            "atlante": "atlante", "potros": "atlante",
+            "monarcas": "monarcas", "morelia": "monarcas",
+            "tiburonesveracruz": "tiburonesveracruz", "veracruz": "tiburonesveracruz", "tiburones": "tiburonesveracruz"
+        };
+        const userCountries = {};
+
+        /* ==================================================== 
+           SISTEMA DE LICENCIA / TOKENS
+           ==================================================== */
+        let TOKEN_LIMIT = 35000;
+        let consumedTokens = 0;
+        let streamerUsername = localStorage.getItem('lastStreamer') || 'default';
+        let gracePeriodStarted = false;
+        let gracePeriodExpired = false;
+        let graceTimeLeft = 300;
+        let graceDisplayInterval = null;
+        let isLicenseBlocked = false;
+
+        function initFirebaseSync() {
+            if (!window.firebaseLoaded) {
+                setTimeout(initFirebaseSync, 100);
+                return;
+            }
+            const db = window.firebaseDb;
+            const ref = window.firebaseRef;
+            const onValue = window.firebaseOnValue;
+
+            // Escuchar licencia
+            onValue(ref(db, 'licenses/' + streamerUsername), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    consumedTokens = data.tokens || 0;
+                    if (data.limit !== undefined) TOKEN_LIMIT = data.limit;
+                    isLicenseBlocked = data.blocked || false;
+                    
+                    if (isLicenseBlocked) {
+                        checkLockScreen();
+                    }
+                    updateTokenUI();
+                } else {
+                    // Si no existe, creamos la licencia inicial
+                    window.firebaseSet(ref(db, 'licenses/' + streamerUsername), {
+                        tokens: 0,
+                        limit: 35000,
+                        blocked: false,
+                        lastActive: Date.now()
+                    });
+                }
+            });
+
+            // Escuchar historial de copas
+            onValue(ref(db, 'gamedata/' + streamerUsername + '/historicalWins'), (snapshot) => {
+                historicalWins = snapshot.val() || {};
+                updateHistoricalUI();
+            });
+
+            // Escuchar estadisticas de torneo
+            onValue(ref(db, 'gamedata/' + streamerUsername + '/tournamentStats'), (snapshot) => {
+                tournamentStats = snapshot.val() || { leaders: {} };
+                updateStatsUI();
+            });
+        }
+
+        function saveHistoricalToFirebase() {
+            if (window.firebaseLoaded) {
+                window.firebaseSet(window.firebaseRef(window.firebaseDb, 'gamedata/' + streamerUsername + '/historicalWins'), historicalWins);
+            }
+        }
+
+        function saveStatsToFirebase() {
+            if (window.firebaseLoaded) {
+                window.firebaseSet(window.firebaseRef(window.firebaseDb, 'gamedata/' + streamerUsername + '/tournamentStats'), tournamentStats);
+            }
+        }
+
+        function startGracePeriodDisplay() {
+            let display = document.getElementById("graceTimerDisplay");
+            if (display) display.style.display = "block";
+            
+            graceDisplayInterval = setInterval(() => {
+                graceTimeLeft--;
+                if (graceTimeLeft < 0) graceTimeLeft = 0;
+                
+                if (display) {
+                    let m = Math.floor(graceTimeLeft / 60).toString().padStart(2, '0');
+                    let s = (graceTimeLeft % 60).toString().padStart(2, '0');
+                    display.innerText = `GRACIA: ${m}:${s}`;
+                }
+                
+                if (graceTimeLeft <= 0) clearInterval(graceDisplayInterval);
+            }, 1000);
+        }
+
+        function checkLockScreen() {
+            if (typeof isRaceActive !== 'undefined' && isRaceActive) {
+                // Permitir que termine la partida actual antes de bloquear
+            } else {
+                let lockScreen = document.getElementById("tokenLockScreen");
+                if (isLicenseBlocked || (gracePeriodStarted && gracePeriodExpired)) {
+                    if (lockScreen) lockScreen.style.display = "flex";
+                    if (typeof timerInt !== 'undefined' && timerInt) clearTimeout(timerInt);
+                } else {
+                    if (lockScreen) lockScreen.style.display = "none";
+                }
+            }
+        }
+
+        function updateTokenUI() {
+            let pct = (consumedTokens / TOKEN_LIMIT) * 100;
+            if (pct > 100) pct = 100;
+            
+            let barFill = document.getElementById("tokenBarFill");
+            let barText = document.getElementById("tokenBarText");
+            
+            if (barFill) barFill.style.width = pct + "%";
+            if (barText) barText.innerText = `${consumedTokens} / ${TOKEN_LIMIT} Tokens`;
+
+            if (consumedTokens >= TOKEN_LIMIT) {
+                if (!gracePeriodStarted) {
+                    gracePeriodStarted = true;
+                    startGracePeriodDisplay();
+                    // Dar 5 minutos de gracia (300,000 ms) antes de bloquear
+                    setTimeout(() => {
+                        gracePeriodExpired = true;
+                        checkLockScreen();
+                    }, 5 * 60 * 1000);
+                } else if (gracePeriodExpired) {
+                    checkLockScreen();
+                }
+            }
+        }
+
+        function addConsumedTokens(amount) {
+            consumedTokens += amount;
+            if (window.firebaseLoaded) {
+                window.firebaseUpdate(window.firebaseRef(window.firebaseDb, 'licenses/' + streamerUsername), {
+                    tokens: consumedTokens,
+                    lastActive: Date.now()
+                });
+            }
+            updateTokenUI();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initFirebaseSync();
+            updateTokenUI();
+        });
+
+        let selectedTeams = [];
+        let flagImages = {}; // Caché
+        let imagesLoaded = 0;
+
+        const grid = document.getElementById("countryGrid");
+        const countSpan = document.getElementById("pickerCount");
+        const btnStart = document.getElementById("btnStartTournament");
+
+        Object.keys(ALL_COUNTRIES_MAP).forEach(code => {
+            let container = document.createElement("div");
+            container.className = "picker-container";
+            container.id = "picker-container-" + code;
+
+            let div = document.createElement("div");
+            div.className = "picker-item";
+            div.style.backgroundImage = `url(${code}.png)`;
+            
+            let nameDiv = document.createElement("div");
+            nameDiv.className = "picker-name";
+            nameDiv.innerText = ALL_COUNTRIES_MAP[code];
+
+            container.onclick = () => {
+                if (selectedTeams.includes(code)) {
+                    selectedTeams = selectedTeams.filter(t => t !== code);
+                } else {
+                    if (selectedTeams.length >= 16) return;
+                    selectedTeams.push(code);
+                }
+                updatePickerBadges();
+            };
+            container.appendChild(div);
+            container.appendChild(nameDiv);
+            grid.appendChild(container);
+        });
+
+        function updatePickerBadges() {
+            document.querySelectorAll('.picker-badge').forEach(e => e.remove());
+            document.querySelectorAll('.picker-item').forEach(e => e.classList.remove('selected'));
+            
+            selectedTeams.forEach((code, index) => {
+                let container = document.getElementById('picker-container-' + code);
+                if(!container) return;
+                
+                let badge = document.createElement("div");
+                badge.className = "picker-badge";
+                badge.innerText = index + 1;
+                container.appendChild(badge);
+                
+                container.querySelector('.picker-item').classList.add("selected");
+            });
+
+            countSpan.innerText = selectedTeams.length;
+            if (selectedTeams.length === 16) {
+                btnStart.classList.add("enabled");
+            } else {
+                btnStart.classList.remove("enabled");
+            }
+        }
+
+        /* ==================================================== 
+           LOGICA DEL CANVAS Y BRACKET
+           ==================================================== */
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        let flagSizeScale = 1.0;
+
+        let matches = [
+            // ROUND 0 (Octavos) - L
+            { id: 0, x: 30, y: 110, w: 50, h: 90, next: 8, side: 'L', round: 0, flags: [null, null], played: false },
+            { id: 1, x: 30, y: 215, w: 50, h: 90, next: 8, side: 'L', round: 0, flags: [null, null], played: false },
+            { id: 2, x: 30, y: 320, w: 50, h: 90, next: 9, side: 'L', round: 0, flags: [null, null], played: false },
+            { id: 3, x: 30, y: 425, w: 50, h: 90, next: 9, side: 'L', round: 0, flags: [null, null], played: false },
+
+            // ROUND 0 (Octavos) - R
+            { id: 4, x: 720, y: 110, w: 50, h: 90, next: 10, side: 'R', round: 0, flags: [null, null], played: false },
+            { id: 5, x: 720, y: 215, w: 50, h: 90, next: 10, side: 'R', round: 0, flags: [null, null], played: false },
+            { id: 6, x: 720, y: 320, w: 50, h: 90, next: 11, side: 'R', round: 0, flags: [null, null], played: false },
+            { id: 7, x: 720, y: 425, w: 50, h: 90, next: 11, side: 'R', round: 0, flags: [null, null], played: false },
+
+            // CUARTOS - L
+            { id: 8, x: 150, y: 162.5, w: 50, h: 90, next: 12, side: 'L', round: 1, flags: [null, null], played: false },
+            { id: 9, x: 150, y: 372.5, w: 50, h: 90, next: 12, side: 'L', round: 1, flags: [null, null], played: false },
+            // CUARTOS - R
+            { id: 10, x: 600, y: 162.5, w: 50, h: 90, next: 13, side: 'R', round: 1, flags: [null, null], played: false },
+            { id: 11, x: 600, y: 372.5, w: 50, h: 90, next: 13, side: 'R', round: 1, flags: [null, null], played: false },
+
+            // SEMI - L
+            { id: 12, x: 270, y: 267.5, w: 50, h: 90, next: 14, side: 'L', round: 2, flags: [null, null], played: false },
+            // SEMI - R
+            { id: 13, x: 480, y: 267.5, w: 50, h: 90, next: 14, side: 'R', round: 2, flags: [null, null], played: false },
+
+            // FINAL - C
+            { id: 14, x: 337.5, y: 90, w: 125, h: 55, next: null, side: 'C', round: 3, flags: [null, null], played: false }
+        ];
+
+        // Mapeo de navegación con teclado
+        const navMap = {
+            0: { up: 7, down: 1, left: 4, right: 8 },
+            1: { up: 0, down: 2, left: 5, right: 8 },
+            2: { up: 1, down: 3, left: 6, right: 9 },
+            3: { up: 2, down: 4, left: 7, right: 9 },
+            8: { up: 11, down: 9, left: 0, right: 12 },
+            9: { up: 8, down: 10, left: 2, right: 12 },
+            12: { up: 13, down: 13, left: 8, right: 14 },
+            14: { up: 14, down: 14, left: 12, right: 13 },
+            13: { up: 12, down: 12, left: 14, right: 10 },
+            10: { up: 9, down: 11, left: 13, right: 4 },
+            11: { up: 10, down: 8, left: 13, right: 6 },
+            4: { up: 3, down: 5, left: 10, right: 0 },
+            5: { up: 4, down: 6, left: 10, right: 1 },
+            6: { up: 5, down: 7, left: 11, right: 2 },
+            7: { up: 6, down: 0, left: 11, right: 3 }
+        };
+
+        // Lógica para imágenes extras (aficionados y logo de la copa)
+        const aficionImg = new Image();
+        aficionImg.src = 'lino.png';
+        const caneImg = new Image();
+        caneImg.src = 'copa.png';
+
+        // INICIO TRAS SELECCIÓN
+        btnStart.onclick = () => {
+            document.getElementById("pickerScreen").style.display = "none";
+            document.getElementById("mainGameContainer").style.display = "flex";
+
+            // Asignar los 16 equipos seleccionados a los partidos de octavos
+            // Izquierda (0,1,2,3) toman los primeros 8
+            for (let i = 0; i < 4; i++) {
+                matches[i].flags = [selectedTeams[i * 2], selectedTeams[i * 2 + 1]];
+            }
+            // Derecha (4,5,6,7) toman los siguientes 8
+            for (let i = 0; i < 4; i++) {
+                matches[4 + i].flags = [selectedTeams[8 + i * 2], selectedTeams[9 + i * 2]];
+            }
+
+            // Descargar imágenes localmente para el canvas
+            selectedTeams.forEach(code => {
+                const img = new Image();
+                // img.crossOrigin = "Anonymous"; // Removido para evitar bloqueos CORS con archivos locales
+                img.onload = () => {
+                    imagesLoaded++;
+                    flagImages[code] = img;
+                    if (imagesLoaded === 16) drawBracketCanvas();
+                };
+                img.onerror = () => {
+                    console.error("Error cargando la imagen: " + code + ".png");
+                    imagesLoaded++;
+                    if (imagesLoaded === 16) drawBracketCanvas();
+                };
+                img.src = `${code}.png`;
+            });
+
+            // Set partido activo por defecto
+            setActiveMatch(matches[0]);
+
+            // Iniciar carruseles
+            initCarousels();
+
+            // Activar arrastre en paneles
+            makeDraggable(document.getElementById("bgPanel"));
+            makeDraggable(document.getElementById("statsPanel"));
+            makeDraggable(document.getElementById("historicalPanel"));
+            updateStatsUI();
+            updateHistoricalUI();
+        };
+
+        /* ==================================================== 
+           LOGICA DE ARRASTRE Y ESTADISTICAS
+           ==================================================== */
+        function makeDraggable(el) {
+            if(!el) return;
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            el.onmousedown = (e) => {
+                e = e || window.event;
+                if(e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                e.preventDefault();
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = () => {
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                };
+                document.onmousemove = (e) => {
+                    e = e || window.event;
+                    e.preventDefault();
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    el.style.top = (el.offsetTop - pos2) + "px";
+                    el.style.left = (el.offsetLeft - pos1) + "px";
+                };
+            };
+        }
+
+        let historicalWins = {};
+        let tournamentStats = { leaders: {} };
+
+        function recordWin(code, isCup) {
+            if(!code) return;
+            if(isCup) {
+                historicalWins[code] = (historicalWins[code] || 0) + 1;
+                saveHistoricalToFirebase();
+                updateHistoricalUI();
+            }
+        }
+
+        function updateHistoricalUI() {
+            const histContent = document.getElementById("historicalContent");
+            if(!histContent) return;
+            
+            let codes = Object.keys(historicalWins).sort((a,b) => historicalWins[b] - historicalWins[a]);
+            
+            if(codes.length === 0) {
+                histContent.innerHTML = '<div style="text-align: center; color: #555; font-size: 12px;">Sin copas</div>';
+                return;
+            }
+
+            histContent.innerHTML = codes.map((code, index) => `
+                <div class="historical-item" title="${ALL_COUNTRIES_MAP[code]}">
+                    ${index === 0 ? '<img src="https://cdn-icons-png.flaticon.com/512/6941/6941697.png" class="crown-animate">' : ''}
+                    <img src="${code}.png" class="historical-flag">
+                    <span class="historical-count" onclick="editHistorical('${code}')">${historicalWins[code]}</span>
+                </div>
+            `).join('');
+        }
+
+        function editHistorical(code) {
+            let newVal = prompt(`Copas para ${ALL_COUNTRIES_MAP[code]}:`, historicalWins[code]);
+            if (newVal !== null) {
+                historicalWins[code] = parseInt(newVal) || 0;
+                saveHistoricalToFirebase();
+                updateHistoricalUI();
+            }
+        }
+
+        // Borrado por click derecho en panel histórico
+        document.getElementById("historicalPanel").oncontextmenu = (e) => {
+            e.preventDefault();
+            if(confirm("¿Seguro que quieres borrar TODO el historial de copas?")) {
+                historicalWins = {};
+                saveHistoricalToFirebase();
+                updateHistoricalUI();
+            }
+        };
+
+        function trackUserPoints(username, country, points) {
+            if (!tournamentStats.leaders[username]) {
+                tournamentStats.leaders[username] = { points: 0, country: country };
+            }
+            tournamentStats.leaders[username].points += points;
+            tournamentStats.leaders[username].country = country; // Actualizar por si cambió de país
+            updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            const statsContent = document.getElementById("statsContent");
+            if(!statsContent) return;
+            
+            let leaders = Object.entries(tournamentStats.leaders)
+                        .sort((a,b) => b[1].points - a[1].points)
+                        .slice(0, 10); // Top 10
+            
+            if(leaders.length === 0) {
+                statsContent.innerHTML = '<div style="text-align: center; color: #555; font-size: 12px;">Sin datos aún</div>';
+                saveStatsToFirebase();
+                return;
+            }
+
+            statsContent.innerHTML = leaders.map(([user, data]) => `
+                <div class="stats-item">
+                    <img src="${data.country}.png" style="width: 24px; height: 24px; object-fit: cover; border-radius:50%; border:1px solid #444;">
+                    <span style="font-size:12px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${user}</span>
+                    <span class="stats-count">${data.points.toLocaleString()} ⚽</span>
+                </div>
+            `).join('');
+            saveStatsToFirebase();
+        }
+
+        /* FUNCIONES DE DIBUJO CANVAS */
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // Clip circular para banderas
+        function drawCircleFlag(ctx, image, cx, cy, radius) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(image, cx - radius, cy - radius, radius * 2, radius * 2);
+            ctx.restore();
+
+            // Bordecito blanco
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+            ctx.lineWidth = 1.5;
+            ctx.strokeStyle = "white";
+            ctx.stroke();
+        }
+
+        function drawBackgroundLines(ctx) {
+            ctx.lineWidth = 4;
+            // Angled blue lines on left
+            ctx.strokeStyle = "rgba(0, 102, 255, 0.4)";
+            ctx.shadowColor = "#0066ff";
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.moveTo(0, 450); ctx.lineTo(100, 600);
+            ctx.moveTo(0, 500); ctx.lineTo(60, 600);
+            ctx.moveTo(0, 550); ctx.lineTo(30, 600);
+            
+            ctx.moveTo(0, 80); ctx.lineTo(50, 0);
+            ctx.moveTo(0, 130); ctx.lineTo(80, 0);
+            ctx.stroke();
+
+            // Angled pink lines on right
+            ctx.strokeStyle = "rgba(255, 0, 153, 0.4)";
+            ctx.shadowColor = "#ff0099";
+            ctx.beginPath();
+            ctx.moveTo(800, 450); ctx.lineTo(700, 600);
+            ctx.moveTo(800, 500); ctx.lineTo(740, 600);
+            ctx.moveTo(800, 550); ctx.lineTo(770, 600);
+            
+            ctx.moveTo(800, 80); ctx.lineTo(750, 0);
+            ctx.moveTo(800, 130); ctx.lineTo(720, 0);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawLines(ctx) {
+            drawBackgroundLines(ctx);
+            
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 8;
+
+            matches.forEach(m => {
+                if (m.next === null) return;
+                let nextM = matches.find(n => n.id === m.next);
+                if (!nextM) return;
+
+                let incomingMatches = matches.filter(x => x.next === nextM.id);
+                // Sort to guarantee top/bottom mapping
+                incomingMatches.sort((a,b) => a.y - b.y);
+                let isTopChild = incomingMatches[0].id === m.id;
+
+                let startX, startY, endX, endY;
+
+                if (m.side === 'L') {
+                    ctx.strokeStyle = "#0066ff"; // Glowing blue
+                    ctx.shadowColor = "#0066ff";
+                    startX = m.x + 50 + 8; // Past vertical bracket
+                    startY = m.y + m.h / 2;
+                    
+                    if (nextM.side === 'C') {
+                        endX = nextM.x + 30; // Center of Left Box in Final
+                        endY = nextM.y + nextM.h; // Bottom of Final
+                    } else {
+                        endX = nextM.x;
+                        endY = isTopChild ? nextM.y + nextM.h/4 : nextM.y + 3*nextM.h/4;
+                    }
+                } else if (m.side === 'R') {
+                    ctx.strokeStyle = "#ff0099"; // Glowing pink
+                    ctx.shadowColor = "#ff0099";
+                    startX = m.x - 8;
+                    startY = m.y + m.h / 2;
+                    
+                    if (nextM.side === 'C') {
+                        endX = nextM.x + 125 - 30; // Center of Right Box in Final
+                        endY = nextM.y + nextM.h;
+                    } else {
+                        endX = nextM.x + 50;
+                        endY = isTopChild ? nextM.y + nextM.h/4 : nextM.y + 3*nextM.h/4;
+                    }
+                }
+
+                let midX = (startX + endX) / 2;
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                if (nextM.side === 'C') {
+                    ctx.lineTo(endX, startY);
+                    ctx.lineTo(endX, endY);
+                } else {
+                    ctx.lineTo(midX, startY);
+                    ctx.lineTo(midX, endY);
+                    ctx.lineTo(endX, endY);
+                }
+                ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+        }
+
+        function drawMatchBoxes(ctx, glowBlur) {
+            matches.forEach(m => {
+                let f1 = m.flags && m.flags[0];
+                let f2 = m.flags && m.flags[1];
+
+                ctx.lineWidth = 2;
+                
+                // Color depending on side
+                if (m.side === 'L') {
+                    ctx.strokeStyle = "#0066ff";
+                    ctx.shadowColor = "#0066ff";
+                } else if (m.side === 'R') {
+                    ctx.strokeStyle = "#ff0099";
+                    ctx.shadowColor = "#ff0099";
+                } else {
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.shadowColor = "#ffffff";
+                }
+
+                if(activeMatch && activeMatch.id === m.id) {
+                    ctx.shadowBlur = glowBlur || 15;
+                    ctx.lineWidth = 3;
+                } else {
+                    ctx.shadowBlur = 5;
+                }
+                
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+
+                if (m.side === 'C') {
+                    // Final: lado a lado
+                    let boxW = 55, boxH = 55, gap = 15;
+                    
+                    // Center Bracket line connecting the two finalists before final
+                    ctx.beginPath();
+                    ctx.moveTo(m.x - 10, m.y + boxH/2);
+                    ctx.lineTo(m.x, m.y + boxH/2);
+                    ctx.moveTo(m.x + boxW*2 + gap, m.y + boxH/2);
+                    ctx.lineTo(m.x + boxW*2 + gap + 10, m.y + boxH/2);
+                    ctx.stroke();
+
+                    // Box 1 (Left, Blue)
+                    ctx.strokeStyle = "#0066ff"; ctx.shadowColor = "#0066ff";
+                    if(activeMatch && activeMatch.id === m.id) ctx.shadowBlur = glowBlur || 15; else ctx.shadowBlur = 5;
+                    roundRect(ctx, m.x, m.y, boxW, boxH, 6); ctx.fill(); ctx.stroke();
+                    if (f1 && flagImages[f1]) drawCircleFlag(ctx, flagImages[f1], m.x + boxW/2, m.y + boxH/2, boxW/2 - 4);
+                    
+                    // Box 2 (Right, Pink)
+                    ctx.strokeStyle = "#ff0099"; ctx.shadowColor = "#ff0099";
+                    if(activeMatch && activeMatch.id === m.id) ctx.shadowBlur = glowBlur || 15; else ctx.shadowBlur = 5;
+                    roundRect(ctx, m.x + boxW + gap, m.y, boxW, boxH, 6); ctx.fill(); ctx.stroke();
+                    if (f2 && flagImages[f2]) drawCircleFlag(ctx, flagImages[f2], m.x + boxW + gap + boxW/2, m.y + boxH/2, boxW/2 - 4);
+
+                    // Final top bracket framing (like in the image)
+                    ctx.beginPath();
+                    ctx.strokeStyle = "#ffffff"; ctx.shadowColor = "#ffffff"; ctx.shadowBlur = 5;
+                    ctx.moveTo(m.x, m.y - 15);
+                    ctx.lineTo(m.x, m.y - 25);
+                    ctx.lineTo(m.x + boxW*2 + gap, m.y - 25);
+                    ctx.lineTo(m.x + boxW*2 + gap, m.y - 15);
+                    ctx.stroke();
+
+                } else {
+                    // Normal: caja adaptada a su m.w y m.h
+                    let boxW = m.w, boxH = m.h;
+                    
+                    roundRect(ctx, m.x, m.y, boxW, boxH, 4); ctx.fill(); ctx.stroke();
+                    
+                    // Divider line
+                    ctx.beginPath();
+                    ctx.moveTo(m.x, m.y + boxH/2);
+                    ctx.lineTo(m.x + boxW, m.y + boxH/2);
+                    ctx.stroke();
+
+                    // Flags
+                    if (!f1) {
+                        ctx.beginPath(); ctx.moveTo(m.x + 15, m.y + boxH/4); ctx.lineTo(m.x + 35, m.y + boxH/4); ctx.stroke();
+                    } else if (flagImages[f1]) {
+                        drawCircleFlag(ctx, flagImages[f1], m.x + boxW/2, m.y + boxH/4, 20);
+                    }
+
+                    if (!f2) {
+                        ctx.beginPath(); ctx.moveTo(m.x + 15, m.y + 3*boxH/4); ctx.lineTo(m.x + 35, m.y + 3*boxH/4); ctx.stroke();
+                    } else if (flagImages[f2]) {
+                        drawCircleFlag(ctx, flagImages[f2], m.x + boxW/2, m.y + 3*boxH/4, 20);
+                    }
+
+                    // Bracket short horizontal lines
+                    ctx.beginPath();
+                    let brX = m.side === 'L' ? m.x + boxW + 8 : m.x - 8;
+                    let edgeX = m.side === 'L' ? m.x + boxW : m.x;
+                    
+                    ctx.moveTo(edgeX, m.y + boxH/4); ctx.lineTo(brX, m.y + boxH/4);
+                    ctx.moveTo(edgeX, m.y + 3*boxH/4); ctx.lineTo(brX, m.y + 3*boxH/4);
+                    ctx.moveTo(brX, m.y + boxH/4); ctx.lineTo(brX, m.y + 3*boxH/4);
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawLabels(ctx) {
+             ctx.fillStyle = "white"; ctx.textAlign = "center";
+             ctx.shadowColor = "black"; ctx.shadowBlur = 5;
+             
+             ctx.font = "bold 16px Arial"; 
+             ctx.fillText("FINAL", 400, 75);
+
+             if (caneImg.complete && caneImg.naturalHeight !== 0) {
+                 let imgH = 180;
+                 let imgW = (caneImg.width / caneImg.height) * imgH;
+                 ctx.drawImage(caneImg, 400 - imgW/2, 170, imgW, imgH);
+             }
+
+             ctx.font = "bold 14px Arial";
+             ctx.fillText("SF", 295, 250); 
+             ctx.fillText("SF", 505, 250);
+
+             ctx.fillText("QF", 175, 145);
+             ctx.fillText("QF", 175, 355);
+             ctx.fillText("QF", 625, 145);
+             ctx.fillText("QF", 625, 355);
+
+             ctx.fillText("R16", 55, 95);
+             ctx.fillText("R16", 745, 95);
+
+             if (aficionImg.complete && aficionImg.naturalHeight !== 0) {
+                 let imgW = 360;
+                 let imgH = (aficionImg.height / aficionImg.width) * imgW;
+                 ctx.drawImage(aficionImg, 400 - imgW/2, 550 - imgH, imgW, imgH);
+             }
+        }
+
+        let glowTime = 0;
+        function drawBracketCanvas() {
+            // El loop de animación ahora se encarga de esto. Lo mantenemos por compatibilidad.
+        }
+
+        function renderCanvasLoop() {
+            glowTime += 0.05;
+            let glowBlur = 10 + Math.sin(glowTime) * 10;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawLines(ctx);
+            drawLabels(ctx);
+            drawMatchBoxes(ctx, glowBlur);
+            
+            requestAnimationFrame(renderCanvasLoop);
+        }
+        
+        requestAnimationFrame(renderCanvasLoop);
+
+        /* ACTUALIZACION TAMAÑO BANDERAS */
+        document.getElementById("flagSizeOptions").addEventListener("change", function() {
+            flagSizeScale = parseFloat(this.value);
+            drawBracketCanvas();
+        });
+
+        /* FONDO PERSONALIZADO DEL CANVAS */
+        document.getElementById("bgImageInput").addEventListener("change", function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                document.getElementById("gameCanvas").style.background = `url(${url}) center / cover no-repeat`;
+            }
+        });
+
+        /* ==================================================== 
+           LÓGICA PARTIDA ACTIVA Y BARRA SUPERIOR
+           ==================================================== */
+        let activeMatch = null;
+        let pointsL = 0;
+        let pointsR = 0;
+        let userLikes = {}; // Tracks cumulative likes per user per match
+        let isRaceActive = false; // Scoring only works when timer is running
+
+        function setActiveMatch(match) {
+            // Solo activar jugadas validas que tienen 2 competidores
+            if (!match.flags || !match.flags[0] || !match.flags[1]) return;
+            activeMatch = match;
+            pointsL = 0;
+            pointsR = 0;
+            updateTopBar();
+            drawBracketCanvas(); // repintar para mostrar cuadro brilloso
+        }
+
+        function advanceFlag(match, flagIndex) {
+            if (match.played) return; // Evitar doble conteo si ya se registró
+            
+            if (match.next === null) {
+                // Es la Final
+                let winnerFlag = match.flags[flagIndex];
+                recordWin(winnerFlag, true);
+                match.played = true;
+                drawBracketCanvas();
+                return;
+            }
+            
+            let winnerFlag = match.flags[flagIndex];
+            let nextM = matches.find(m => m.id === match.next);
+            if (!nextM) return;
+
+            let incomingMatches = matches.filter(m => m.next === nextM.id);
+            let childIndex = incomingMatches.findIndex(m => m.id === match.id);
+            if (childIndex !== -1) {
+                nextM.flags[childIndex] = winnerFlag;
+            }
+            
+            // Ya no registramos MVPs por ronda en la nueva tabla de goleadores
+            match.played = true;
+            drawBracketCanvas();
+        }
+
+        function undoFlagAdvance(match, flagIndex) {
+            if (match.round === 0) return; // No se puede quitar banderas de octavos así nomás
+            match.flags[flagIndex] = null;
+            
+            let incomingMatches = matches.filter(m => m.next === match.id);
+            if (incomingMatches.length > flagIndex) {
+                incomingMatches[flagIndex].played = false;
+            }
+            drawBracketCanvas();
+        }
+
+        function handleCanvasClick(e, isRightClick) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            let x = (e.clientX - rect.left) * scaleX;
+            let y = (e.clientY - rect.top) * scaleY;
+            
+            let clicked = matches.find(m => {
+                return (x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h);
+            });
+            
+            if (clicked) {
+                let isF1 = false, isF2 = false;
+                
+                if (clicked.side === 'C') {
+                    // Lado a lado (w: 125, boxW: 55, gap: 15)
+                    if (x < clicked.x + 55 + 15/2) isF1 = true;
+                    else isF2 = true;
+                } else {
+                    // Apilados (h: 110, boxH: 50, gap: 10)
+                    if (y < clicked.y + 50 + 10/2) isF1 = true;
+                    else isF2 = true;
+                }
+
+                if (!isRightClick) {
+                    if (isF1 && clicked.flags[0]) {
+                        advanceFlag(clicked, 0);
+                    } else if (isF2 && clicked.flags[1]) {
+                        advanceFlag(clicked, 1);
+                    } else {
+                        setActiveMatch(clicked);
+                    }
+                } else {
+                    if (isF1 && clicked.flags[0]) {
+                        undoFlagAdvance(clicked, 0);
+                    } else if (isF2 && clicked.flags[1]) {
+                        undoFlagAdvance(clicked, 1);
+                    }
+                }
+            }
+        }
+
+        canvas.addEventListener("click", e => handleCanvasClick(e, false));
+        canvas.addEventListener("contextmenu", e => { e.preventDefault(); handleCanvasClick(e, true); });
+
+        document.addEventListener('keydown', e => {
+            if (!activeMatch) return;
+            const key = e.key;
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+                e.preventDefault(); // Evita que la pantalla haga scroll al usar flechas
+                let nav = navMap[activeMatch.id];
+                if (!nav) return;
+                
+                let nextId = null;
+                if (key === 'ArrowUp') nextId = nav.up;
+                if (key === 'ArrowDown') nextId = nav.down;
+                if (key === 'ArrowLeft') nextId = nav.left;
+                if (key === 'ArrowRight') nextId = nav.right;
+
+                if (nextId !== null) {
+                    let nextMatch = matches.find(m => m.id === nextId);
+                    if (nextMatch) setActiveMatch(nextMatch);
+                }
+            }
+        });
+
+        function updateTopBar() {
+            if (!activeMatch) return;
+            document.getElementById("flagLeft").src = `${activeMatch.flags[0]}.png`;
+            document.getElementById("flagRight").src = `${activeMatch.flags[1]}.png`;
+
+            let total = pointsL + pointsR;
+            let pctL = total === 0 ? 50 : (pointsL / total) * 100;
+            let pctR = 100 - pctL;
+
+            document.getElementById("blueBar").style.width = pctL + "%";
+            document.getElementById("greenBar").style.width = pctR + "%";
+            document.getElementById("scoreL").innerText = pointsL;
+            document.getElementById("scoreR").innerText = pointsR;
+        }
+
+        /* ==================================================== 
+           RELÓJ (TIMER) Y AVANCE AUTOMÁTICO
+           ==================================================== */
+        let timerInt = null;
+        let timeLeft = 0;
+        let timerDelay = 1000;
+
+        document.getElementById("startTimerBtn").onclick = function() {
+            if (activeMatch && !activeMatch.played) {
+                clearTimeout(timerInt);
+                timeLeft = parseInt(document.getElementById("timerOptions").value);
+                isRaceActive = true;
+                timerDelay = 1000;
+                userLikes = {}; // Reiniciar likes para el nuevo partido
+                document.getElementById("topTimer").style.color = "white";
+                updateTimerUI();
+                runTimerCycle();
+            }
+        };
+
+        function runTimerCycle() {
+            timerInt = setTimeout(() => {
+                if (timeLeft > 0) {
+                    timeLeft--;
+                }
+                
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    isRaceActive = false;
+                    handleMatchFinished();
+                    updateTokenUI(); // Revisar si se debe bloquear el sistema al terminar
+                    return;
+                }
+
+                // Si quedan 10 segundos, relentizar el tiempo (snipe time) y parpadear en rojo
+                if (timeLeft <= 10) {
+                    document.getElementById("topTimer").style.color = "#ff3333";
+                    timerDelay = 1800; // Hace que 1 segundo del reloj tome 1.8 seg reales
+                } else {
+                    document.getElementById("topTimer").style.color = "white";
+                    timerDelay = 1000;
+                }
+
+                updateTimerUI();
+                runTimerCycle(); // loop
+            }, timerDelay);
+        }
+
+        function handleMatchFinished() {
+            if (!activeMatch) return;
+            
+            // 1. Decidir el ganador
+            let winnerFlag = null;
+            if (pointsL > pointsR) winnerFlag = activeMatch.flags[0];
+            else if (pointsR > pointsL) winnerFlag = activeMatch.flags[1];
+            else {
+                winnerFlag = activeMatch.flags[Math.random() > 0.5 ? 0 : 1];
+            }
+
+            // Registrar MVP (ronda ganada)
+            // Ya no llamamos recordWin aquí directamente si usamos advanceFlag
+            if (winnerFlag === activeMatch.flags[0]) {
+                advanceFlag(activeMatch, 0);
+            } else {
+                advanceFlag(activeMatch, 1);
+            }
+
+            drawBracketCanvas();
+
+            // 3. Auto seleccionar el siguiente partido que esté listo
+            // Buscamos un partido que tenga par de banderas (no nulas) y no se haya jugado
+            setTimeout(() => {
+                let nextReady = matches.find(m => m.flags[0] && m.flags[1] && !m.played);
+                if (nextReady) {
+                    setActiveMatch(nextReady);
+                } else {
+                    activeMatch = null;
+                    document.getElementById("topTimer").innerText = "FINAL";
+                    document.getElementById("topTimer").style.color = "#00ffcc";
+                    drawBracketCanvas();
+                }
+            }, 3000); // Dar 3 segundos de gracia antes de rotar
+        }
+
+        function updateTimerUI() {
+            let m = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+            let s = (timeLeft % 60).toString().padStart(2, '0');
+            document.getElementById("topTimer").innerText = `${m}:${s}`;
+        }
+        
+        // Poner estado inicial texto
+        updateTimerUI();
+
+        /* ==================================================== 
+           GOLES Y ANIMACIONES DE SERPENTINAS
+           ==================================================== */
+        function addGoal(side) {
+            if(!activeMatch) return;
+            if(side === 'L') {
+                pointsL += 1;
+                triggerSerpentina('left');
+            } else {
+                pointsR += 1;
+                triggerSerpentina('right');
+            }
+            updateTopBar();
+        }
+
+        function triggerSerpentina(side) {
+            let flagId = side === 'left' ? "flagLeft" : "flagRight";
+            let img = document.getElementById(flagId);
+            if(!img) return;
+            let rect = img.getBoundingClientRect();
+            
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const colors = ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#ff00ff", "#00ffff", "#ffffff", "#00ffcc"];
+            
+            for(let i=0; i<50; i++) {
+                let confetti = document.createElement("div");
+                confetti.style.position = "fixed";
+                confetti.style.left = centerX + "px";
+                confetti.style.top = centerY + "px";
+                confetti.style.width = Math.random() * 6 + 4 + "px";
+                confetti.style.height = Math.random() * 12 + 4 + "px";
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.zIndex = "9999";
+                confetti.style.pointerEvents = "none";
+                confetti.style.borderRadius = "2px";
+                document.body.appendChild(confetti);
+                
+                let angle = Math.random() * Math.PI * 2;
+                let dist = Math.random() * 200 + 50; 
+                let duration = Math.random() * 0.6 + 0.4;
+                
+                let tx = Math.cos(angle) * dist;
+                let ty = Math.sin(angle) * dist - 80;
+                
+                confetti.animate([
+                    { transform: 'translate(0, 0) rotate(0deg) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) rotate(${Math.random() * 720}deg) scale(0)`, opacity: 0 }
+                ], {
+                    duration: duration * 1000,
+                    easing: 'cubic-bezier(.25,.8,.25,1)',
+                    fill: 'forwards'
+                });
+                
+                setTimeout(() => confetti.remove(), duration * 1000);
+            }
+        }
+
+        /* FUEGOS ARTIFICIALES (MODO CELEBRACIÓN "W") */
+        const fwCanvas = document.getElementById("fireworksCanvas");
+        const fwCtx = fwCanvas.getContext("2d");
+        let fireworks = [];
+        let fwParticles = [];
+        let fwActive = false;
+        let fwLoopActive = false;
+
+        function shootFirework() {
+            fireworks.push({
+                x: Math.random() * fwCanvas.width,
+                y: fwCanvas.height,
+                targetY: Math.random() * (fwCanvas.height / 2),
+                color: `hsl(${Math.random() * 360}, 100%, 60%)`,
+                speed: Math.random() * 3 + 3
+            });
+        }
+
+        function explodeFirework(fw) {
+            for (let i = 0; i < 30; i++) {
+                let angle = Math.random() * Math.PI * 2;
+                let speed = Math.random() * 3 + 1;
+                fwParticles.push({
+                    x: fw.x,
+                    y: fw.y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    color: fw.color,
+                    alpha: 1,
+                    life: Math.random() * 30 + 30
+                });
+            }
+        }
+
+        function updateFireworks() {
+            fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+            
+            if (!fwActive && fireworks.length === 0 && fwParticles.length === 0) {
+                fwLoopActive = false;
+                return;
+            }
+
+            if (fwActive && Math.random() < 0.1) shootFirework();
+
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                let fw = fireworks[i];
+                fw.y -= fw.speed;
+                
+                fwCtx.fillStyle = fw.color;
+                fwCtx.beginPath();
+                fwCtx.arc(fw.x, fw.y, 2, 0, Math.PI * 2);
+                fwCtx.fill();
+
+                if (fw.y <= fw.targetY) {
+                    explodeFirework(fw);
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            for (let i = fwParticles.length - 1; i >= 0; i--) {
+                let p = fwParticles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 1 / p.life;
+                p.vy += 0.05; // gravity
+
+                if (p.alpha <= 0) {
+                    fwParticles.splice(i, 1);
+                } else {
+                    fwCtx.globalAlpha = p.alpha;
+                    fwCtx.fillStyle = p.color;
+                    fwCtx.beginPath();
+                    fwCtx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                    fwCtx.fill();
+                    fwCtx.globalAlpha = 1;
+                }
+            }
+
+            requestAnimationFrame(updateFireworks);
+        }
+
+        /* TECLAS DE PRUEBA DE GOLES, CELEBRACIÓN */
+        document.addEventListener("keydown", e => {
+            if (e.key === "1") addGoal('L');
+            if (e.key === "2") addGoal('R');
+            if (e.key === "3") {
+                // Tecla 3 para probar visualmente el texto de unión
+                showJoinNotification("UsuarioPrueba", "Colombia");
+            }
+            if (e.key === "w" || e.key === "W") {
+                if (!fwActive) {
+                    fwActive = true;
+                    if (!fwLoopActive) {
+                        fwLoopActive = true;
+                        updateFireworks();
+                    }
+                    setTimeout(() => {
+                        fwActive = false;
+                    }, 3000);
+                }
+            }
+        });
+
+        /* ==================================================== 
+           CONEXIÓN TIKTOK / TIKFINITY
+           ==================================================== */
+        let backendUrl = "https://tiktok-chat-reader-nh9k.onrender.com";
+        
+        // Auto-detección de servidor local para mayor estabilidad
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+            backendUrl = window.location.protocol + "//" + window.location.hostname + ":8081";
+            console.log("Usando backend local:", backendUrl);
+        }
+
+        let connection = new TikTokIOConnection(backendUrl);
+
+        $("#connectButton").click(() => {
+            let user = $("#uniqueIdInput").val().trim().replace("@", "");
+            if(!user) return;
+
+            // Guardar usuario como streamer para el historial y licencias en Firebase
+            streamerUsername = user;
+            localStorage.setItem('lastStreamer', streamerUsername);
+            initFirebaseSync(); // resincronizar al cambiar de usuario
+
+            $("#stateText").html("Conectando...");
+            connection.connect(user).then(s => $("#stateText").html(`Conectado → ${s.roomId}`))
+                                    .catch(e => $("#stateText").html("Error: " + e));
+        });
+        
+        $("#uniqueIdInput").on("keyup", e => { if (e.key === "Enter") $("#connectButton").click(); });
+
+        // TIKFINITY DESKTOP SUPPORT
+        // TIKFINITY DESKTOP SUPPORT (With Auto-Reconnect)
+        let tikFinityWs = null;
+        let tikFinityEnabled = false;
+
+        function connectTikFinity() {
+            if (!tikFinityEnabled) return;
+
+            $("#stateText").html("Conectando TikFinity...");
+            
+            try {
+                tikFinityWs = new WebSocket("ws://127.0.0.1:21213/");
+                
+                tikFinityWs.onopen = () => {
+                    $("#stateText").html("<b style='color:#03dac6'>TikFinity APP Activa</b>");
+                    console.log("TikFinity WebSocket conectado.");
+                };
+
+                tikFinityWs.onclose = () => {
+                    if (tikFinityEnabled) {
+                        $("#stateText").html("<span style='color:orange'>Buscando TikFinity (Reconectando)...</span>");
+                        setTimeout(connectTikFinity, 5000);
+                    } else {
+                        $("#stateText").html("TikFinity Desconectado");
+                    }
+                };
+
+                tikFinityWs.onerror = (error) => {
+                    console.warn("Error en WebSocket de TikFinity. ¿Está abierta la app?");
+                    $("#stateText").html("<span style='color:red'>Error: TikFinity no encontrado</span>");
+                    // No llamamos close() aquí, onclose se llamará automáticamente si falla
+                };
+
+                tikFinityWs.onmessage = (e) => {
+                    try {
+                        let parsed = JSON.parse(e.data);
+                        let event = parsed.event || parsed.type || "";
+                        let data = parsed.data || parsed;
+
+                        if (!data.comment && data.text) data.comment = data.text;
+                        if (!data.uniqueId && data.nickname) data.uniqueId = data.nickname;
+
+                        if (event === "chat" || event === "chatMessage" || event === "ChatMessage") {
+                            handleChat(data);
+                        } else if (event === "gift" || event === "Gift") {
+                            handleGift(data);
+                        } else if (event === "like" || event === "Like") {
+                            handleLike(data);
+                        }
+                    } catch (err) {
+                        console.error("Error parseando TikFinity:", err);
+                    }
+                };
+            } catch(e) {
+                console.error("Error al iniciar WebSocket:", e);
+                setTimeout(connectTikFinity, 5000);
+            }
+        }
+
+        $("#connectTikFinity").click(() => {
+            if (tikFinityEnabled) {
+                tikFinityEnabled = false;
+                if (tikFinityWs) tikFinityWs.close();
+                $("#stateText").html("TikFinity Detenido");
+            } else {
+                let user = $("#uniqueIdInput").val().trim().replace("@", "");
+                if(!user) {
+                    alert("Por favor, ingresa el usuario de TikTok para tener control en Firebase.");
+                    return;
+                }
+
+                // Guardar usuario como streamer para el historial y licencias en Firebase
+                streamerUsername = user;
+                localStorage.setItem('lastStreamer', streamerUsername);
+                initFirebaseSync();
+
+                tikFinityEnabled = true;
+                connectTikFinity();
+            }
+        });
+
+        // CENTRALIZAR LISTENERS DE CONEXIÓN STANDARD
+        connection.on("chat", data => handleChat(data));
+        connection.on("gift", data => handleGift(data));
+        connection.on("like", data => handleLike(data));
+
+        /* ==================================================== 
+           Manejadores Maestros de Eventos
+           ==================================================== */
+
+        function handleChat(data) {
+            let comment = data.comment.toLowerCase().trim();
+            let countryCode = null;
+
+            // 1. Intentar coincidencia exacta o contenida
+            if (countryMap[comment]) {
+                countryCode = countryMap[comment];
+            } else {
+                let countryNames = Object.keys(countryMap).sort((a,b) => b.length - a.length);
+                for (let name of countryNames) {
+                    if (comment.includes(name)) {
+                        countryCode = countryMap[name];
+                        break;
+                    }
+                }
+            }
+            
+            // 2. Atajos rápidos "1" o "2"
+            if (!countryCode && activeMatch && isRaceActive) {
+                if (comment === "1") countryCode = activeMatch.flags[0];
+                if (comment === "2") countryCode = activeMatch.flags[1];
+            }
+            
+            if (countryCode && selectedTeams.includes(countryCode)) {
+                let username = data.uniqueId;
+                userCountries[username] = countryCode;
+                showJoinNotification(username, ALL_COUNTRIES_MAP[countryCode]);
+            }
+        }
+
+        const giftMapL = {
+            5655: 1,    // rose
+            8913: 10,   // rosa
+            5879: 30,   // rosquilla
+            6104: 100,  // gorra
+            5586: 300,  // corazones
+            11046: 1000, // galaxia
+            6646: 5000  // gatito
+        };
+
+        const giftMapR = {
+            5269: 1,    // tiktok
+            9947: 10,   // collar
+            14488: 30,  // capibara
+            6427: 100,  // sombrero
+            5509: 300,  // gafas
+            5978: 1000, // tren
+            5767: 5000  // jetprivado
+        };
+
+        const clickAudio = new Audio('click.mp3');
+        const pointAudio = new Audio('point.mp3');
+        const giftProgress = {};
+        const processedMsgIds = new Set();
+        let lastEffectTime = 0;
+
+        function handleGift(data) {
+            // Deduplicación mejorada para combos
+            if (data.msgId) {
+                const dupKey = data.msgId + "-" + (data.repeatCount || 1);
+                if (processedMsgIds.has(dupKey)) return;
+                processedMsgIds.add(dupKey);
+                if (processedMsgIds.size > 500) {
+                    const firstItem = processedMsgIds.values().next().value;
+                    processedMsgIds.delete(firstItem);
+                }
+            }
+
+            // Soporte robusto para TikFinity o conexión directa
+            const giftId = Number(data.giftId || (data.gift && (data.gift.gift_id || data.gift.id)) || 0);
+            const username = data.uniqueId || data.nickname || "anon";
+            const repeatCountRaw = Number(data.repeatCount || (data.gift && data.gift.repeat_count) || 1);
+            const repeatCount = Number.isFinite(repeatCountRaw) && repeatCountRaw > 0 ? repeatCountRaw : 1;
+
+            // Identificar puntos por ID
+            let pointsPerGift = 0;
+            let side = null;
+
+            if (giftMapL[giftId]) {
+                pointsPerGift = giftMapL[giftId];
+                side = 'left';
+            } else if (giftMapR[giftId]) {
+                pointsPerGift = giftMapR[giftId];
+                side = 'right';
+            }
+
+            if (!side || pointsPerGift === 0) return;
+
+            const key = `${username}:${giftId}`;
+            let previousCount = giftProgress[key] || 0;
+
+            if (repeatCount === 1 || repeatCount < previousCount) {
+                previousCount = 0;
+            }
+
+            const deltaCount = repeatCount - previousCount;
+
+            if (deltaCount > 0) {
+                const totalPointsToAdd = deltaCount * pointsPerGift;
+                
+                addConsumedTokens(totalPointsToAdd);
+                
+                if (activeMatch && isRaceActive) {
+                    if (side === 'left') {
+                        pointsL += totalPointsToAdd;
+                        triggerFlagBlink('left');
+                    } else {
+                        pointsR += totalPointsToAdd;
+                        triggerFlagBlink('right');
+                    }
+
+                    let userCountry = userCountries[username] || (side === 'left' ? activeMatch.flags[0] : activeMatch.flags[1]);
+                    trackUserPoints(username, userCountry, totalPointsToAdd);
+
+                    updateTopBar();
+
+                    const now = Date.now();
+                    if (now - lastEffectTime > 100 || pointsPerGift >= 100) {
+                        triggerSerpentina(side);
+                        if (pointsPerGift > 30) {
+                            pointAudio.play().catch(e => {});
+                        } else {
+                            clickAudio.play().catch(e => {});
+                        }
+                        lastEffectTime = now;
+                    }
+                }
+                giftProgress[key] = repeatCount;
+            }
+
+            if (data.repeatEnd || repeatCount === 1) {
+                delete giftProgress[key];
+            }
+        }
+
+        function trackUserPoints(username, country, points) {
+            let safeUser = username.replace(/[.#$\[\]]/g, "_");
+            if (!tournamentStats.leaders[safeUser]) {
+                tournamentStats.leaders[safeUser] = { points: 0, country: country, originalName: username };
+            }
+            tournamentStats.leaders[safeUser].points += points;
+            tournamentStats.leaders[safeUser].country = country; // Actualizar por si cambió de país
+            updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            const statsContent = document.getElementById("statsContent");
+            if(!statsContent) return;
+            
+            let leaders = Object.entries(tournamentStats.leaders)
+                        .sort((a,b) => b[1].points - a[1].points)
+                        .slice(0, 10);
+            
+            if(leaders.length === 0) {
+                statsContent.innerHTML = '<div style="text-align: center; color: #555; font-size: 12px;">Sin datos aún</div>';
+                saveStatsToFirebase();
+                return;
+            }
+
+            statsContent.innerHTML = leaders.map(([safeUser, data]) => `
+                <div class="stats-item">
+                    <img src="${data.country}.png" style="width: 24px; height: 24px; object-fit: cover; border-radius:50%; border:1px solid #444;">
+                    <span style="font-size:12px; max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${data.originalName || safeUser}</span>
+                    <span class="stats-count">${data.points.toLocaleString()} ⚽</span>
+                </div>
+            `).join('');
+            saveStatsToFirebase();
+        }
+
+        function handleLike(data) {
+            if (!activeMatch || !isRaceActive) return;
+            let username = data.uniqueId;
+            let joinedCountry = userCountries[username];
+
+            if (joinedCountry) {
+                if (joinedCountry === activeMatch.flags[0] || joinedCountry === activeMatch.flags[1]) {
+                    let totalBefore = userLikes[username] || 0;
+                    let count = data.likeCount || 1;
+                    let totalAfter = totalBefore + count;
+                    userLikes[username] = totalAfter;
+
+                    let pointsToAdd = Math.floor(totalAfter / 200) - Math.floor(totalBefore / 200);
+                    if (pointsToAdd > 0) {
+                        if (joinedCountry === activeMatch.flags[0]) {
+                            pointsL += pointsToAdd;
+                            triggerFlagBlink('left');
+                        } else {
+                            pointsR += pointsToAdd;
+                            triggerFlagBlink('right');
+                        }
+                        
+                        // Rastreo de Goleadores por likes
+                        trackUserPoints(username, joinedCountry, pointsToAdd);
+                        
+                        updateTopBar();
+                    }
+                }
+            }
+        }
+
+        function triggerFlagBlink(side) {
+            let id = side === 'left' ? "flagLeft" : "flagRight";
+            let el = document.getElementById(id);
+            if(!el) return;
+            el.classList.add("blink-flag");
+            setTimeout(() => {
+                el.classList.remove("blink-flag");
+            }, 1500);
+        }
+
+        /* ==================================================== 
+           LOGICA DE UNIÓN POR COMENTARIOS
+           ==================================================== */
+        // Se movió a handleChat para centralizar con TikFinity
+
+        let joinQueue = [];
+        let isNotifying = false;
+
+        function showJoinNotification(user, country) {
+            joinQueue.push({ user, country });
+            processJoinQueue();
+        }
+
+        function processJoinQueue() {
+            // Si ya hay una notificación activa o la cola está vacía, no hacer nada
+            if (isNotifying || joinQueue.length === 0) return;
+
+            isNotifying = true;
+            const nextItem = joinQueue.shift();
+            
+            const notif = document.getElementById("joinNotification");
+            const text = document.getElementById("joinNotifText");
+            if(!notif || !text) {
+                isNotifying = false;
+                return;
+            }
+
+            text.innerHTML = `<b>${nextItem.user}</b> se unió a <b>${nextItem.country}</b>`;
+            
+            // Mostrar la burbuja
+            notif.classList.add("show");
+            
+            // Tiempo que la burbuja está visible (1 segundo según pedido)
+            setTimeout(() => {
+                notif.classList.remove("show");
+                
+                // Pequeña pausa antes de mostrar la siguiente en la cola
+                setTimeout(() => {
+                    isNotifying = false;
+                    processJoinQueue();
+                }, 300);
+            }, 1000);
+        }
+
+        /* ---------------- LOGICA TAP TAP PROMO ---------------- */
+        function spawnHearts() {
+            const container = document.getElementById("tapTapPromo");
+            for(let i=0; i<6; i++) {
+                const heart = document.createElement("div");
+                heart.className = "heart-particle";
+                heart.innerHTML = "❤️";
+                heart.style.left = "50%";
+                heart.style.bottom = "20px";
+                heart.style.setProperty("--tx", (Math.random() * 100 - 50) + "px");
+                heart.style.setProperty("--ty", "-" + (Math.random() * 100 + 50) + "px");
+                container.appendChild(heart);
+                setTimeout(() => heart.remove(), 2000);
+            }
+        }
+
+        setInterval(() => {
+            const promo = document.getElementById("tapTapPromo");
+            if(!promo) return;
+            promo.classList.add("show");
+            spawnHearts();
+            setTimeout(() => {
+                promo.classList.remove("show");
+            }, 2000); // Se muestra por 2 segundos
+        }, 10000); // Cada 10 segundos
+
+        /* ==================================================== 
+           LOGICA DEL CARRUSEL DE REGALOS
+           ==================================================== */
+        const carouselImagesL = ["rose.png", "rosa.png", "rosquilla.png", "gorra.png", "corazones.png", "galaxia.png", "gatito.png"];
+        const carouselImagesR = ["tiktok.png", "collar.png", "capibara.png", "sombrero.png", "gafas.png", "tren.png", "jetprivado.png"];
+
+        function initCarousels() {
+            const carL = document.getElementById("carouselL");
+            const carR = document.getElementById("carouselR");
+            if(!carL || !carR) return;
+            
+            carL.innerHTML = "";
+            carR.innerHTML = "";
+
+            // Crear tracks para el efecto marquee
+            const trackL = document.createElement("div");
+            trackL.className = "carousel-track marquee-L";
+            const trackR = document.createElement("div");
+            trackR.className = "carousel-track marquee-R";
+
+            // Duplicar imágenes para que el scroll sea infinito y suave
+            const itemsL = [...carouselImagesL, ...carouselImagesL];
+            const itemsR = [...carouselImagesR, ...carouselImagesR];
+
+            itemsL.forEach((src) => {
+                const imgL = document.createElement("img");
+                imgL.src = src;
+                trackL.appendChild(imgL);
+            });
+
+            itemsR.forEach((src) => {
+                const imgR = document.createElement("img");
+                imgR.src = src;
+                trackR.appendChild(imgR);
+            });
+            
+            carL.appendChild(trackL);
+            carR.appendChild(trackR);
+        }
+
+        /* BOTONES DE GESTIÓN */
+        document.getElementById("resetStatsBtn").onclick = () => {
+            if(confirm("¿Seguro que quieres borrar los Goleadores del torneo actual? (El historial de copas se mantendrá)")) {
+                tournamentStats = { leaders: {} };
+                saveStatsToFirebase();
+                updateStatsUI();
+            }
+        };
+
+        document.getElementById("newRoundBtn").onclick = () => {
+            // Detener timer si está corriendo
+            clearTimeout(timerInt);
+            isRaceActive = false;
+            updateTokenUI();
+            
+            // Reset de juego
+            selectedTeams = [];
+            pointsL = 0;
+            pointsR = 0;
+            
+            // Reset match boxes
+            matches.forEach(m => {
+                m.flags = [null, null];
+                m.played = false;
+            });
+
+            // Mostrar picker
+            document.getElementById("mainGameContainer").style.display = "none";
+            document.getElementById("pickerScreen").style.display = "flex";
+            updatePickerBadges();
+            drawBracketCanvas();
+        };
+
+        document.getElementById("btnRestartFinal").onclick = () => {
+            let finalMatch = matches.find(m => m.id === 14);
+            if (finalMatch && finalMatch.flags[0] && finalMatch.flags[1]) {
+                finalMatch.played = false;
+                pointsL = 0;
+                pointsR = 0;
+                clearTimeout(timerInt);
+                isRaceActive = false;
+                updateTokenUI();
+                document.getElementById("topTimer").innerText = "00:00";
+                document.getElementById("topTimer").style.color = "white";
+                setActiveMatch(finalMatch);
+                drawBracketCanvas();
+            } else {
+                alert("La final no está lista o no se ha alcanzado aún.");
+            }
+        };
+
+        document.getElementById("btnAdd20s").onclick = () => {
+            if (isRaceActive) {
+                timeLeft += 20;
+                updateTimerUI();
+            }
+        };
+
+        // Carga inicial de datos históricos si existen
+        updateHistoricalUI();
+    </script>
+</body>
+</html>
